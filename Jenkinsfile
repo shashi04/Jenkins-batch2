@@ -1,20 +1,46 @@
 pipeline {
     agent any
+
+    environment {
+        IMAGE_NAME = "shashivar04/jenkins_batch2:latest"
+    }
+
     stages {
-        stage('Build') {
+        stage('Checkout Code') {
             steps {
-                echo 'Building the project...'
+                git 'https://github.com/shashi04/Jenkins-batch2.git'
             }
         }
-        stage('Test') {
+        stage('Build Docker Image') {
             steps {
-                echo 'Running test...'
+                script {
+                    sh "docker build -t ${IMAGE_NAME} ."
+                }
             }
         }
-        stage('Deploy') {
+        stage('Login to DockerHub') {
             steps {
-                echo 'Deploying the application...'
+                script {
+                    withCredentials([usernamePassword(credentialsID: 'dockerhub_credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                    }
+                }
             }
         }
+        stage('Push to DockerHub') {
+            steps {
+                script {
+                    sh "docker push ${IMAGE_NAME}"
+                }
+            }
+        }
+        stage('Cleanup') {
+            steps {
+                script {
+                    sh "docker rmi ${IMAGE_NAME}"
+                }
+            }
+        }
+        
     }
 }
