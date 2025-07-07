@@ -8,7 +8,12 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/shashi04/Jenkins-batch2.git'
+                checkout([$class: 'GitSCM',
+                          branches: [[name: '*/main']],
+                          userRemoteConfigs: [[
+                              url: 'https://github.com/shashi04/Jenkins-batch2.git'
+                          ]]
+                ])
             }
         }
         stage('Build Docker Image') {
