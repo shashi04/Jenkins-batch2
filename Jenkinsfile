@@ -2,50 +2,54 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "shashivar04/jenkins_batch2:latest"
+        AWS_REGION = 'ap-south-1'
+        AWS_ACCOUNT_ID = '027937596881'       // <-- replace
+        ECR_REPO_NAME = 'shashi04/guvi_bach_2'              // <-- replace
+        IMAGE_TAG = 'v2'
+        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        FULL_IMAGE_NAME = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                checkout([$class: 'GitSCM',
-                          branches: [[name: '*/main']],
-                          userRemoteConfigs: [[
-                              url: 'https://github.com/shashi04/Jenkins-batch2.git'
-                          ]]
-                ])
+                checkout scm
             }
         }
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${IMAGE_NAME} ."
+                    sh 'docker build -t $ECR_REPO_NAME:$IMAGE_TAG .'
                 }
             }
         }
-        stage('Login to DockerHub') {
+
+        stage('Tag Image') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub_credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
-                    }
+                    sh 'docker tag $ECR_REPO_NAME:$IMAGE_TAG $FULL_IMAGE_NAME'
                 }
             }
         }
-        stage('Push to DockerHub') {
+
+        stage('Login to ECR') {
             steps {
                 script {
-                    sh "docker push ${IMAGE_NAME}"
+                    sh '''
+                        aws ecr get-login-password --region $AWS_REGION | \
+                        docker login --username AWS --password-stdin $ECR_REGISTRY
+                    '''
                 }
             }
         }
-        stage('Cleanup') {
+
+        stage('Push to ECR') {
             steps {
                 script {
-                    sh "docker rmi ${IMAGE_NAME}"
+                    sh 'docker push $FULL_IMAGE_NAME'
                 }
             }
         }
-        
     }
 }
